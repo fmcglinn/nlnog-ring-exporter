@@ -1,0 +1,15 @@
+services:
+  exporter:
+    build: .
+    init: true
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./nlring/:/etc/nlring/:ro
+      - ssh-control:/tmp/ssh-control
+    restart: unless-stopped
+
+volumes:
+  ssh-control:

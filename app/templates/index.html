@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NLNOG Ring Prometheus Exporter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #222; background: #f5f5f5; padding: 2rem; max-width: 860px; margin: 0 auto; }
+    h1 { margin-bottom: 1.5rem; }
+    h2 { margin: 1.5rem 0 0.75rem; font-size: 1.2rem; }
+    a { color: #0366d6; }
+    .endpoints { list-style: none; }
+    .endpoints li { margin-bottom: 0.4rem; }
+    .endpoints code { background: #e8e8e8; padding: 0.15rem 0.4rem; border-radius: 3px; }
+    .desc { color: #555; margin-left: 0.5rem; }
+    form { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 1.25rem; }
+    .field { margin-bottom: 0.75rem; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .field label { width: 120px; font-weight: 600; flex-shrink: 0; padding-top: 0.45rem; }
+    .field input[type="text"],
+    .field input[type="number"] { flex: 1; padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
+    button { background: #0366d6; color: #fff; border: none; padding: 0.55rem 1.4rem; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+    button:hover { background: #0250a3; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    #results { margin-top: 1.25rem; display: none; }
+    #error { color: #d32f2f; margin-top: 0.75rem; display: none; }
+
+    /* Toggle row */
+    .toggle-row { margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; padding-left: 124px; }
+    .toggle-row label { font-weight: 400; cursor: pointer; user-select: none; }
+    .toggle-row input[type="checkbox"] { cursor: pointer; }
+
+    /* Summary line */
+    .summary { background: #f0f6fc; border: 1px solid #c8d1d9; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
+
+    /* Results table */
+    .results-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .results-table th { background: #f6f8fa; text-align: left; padding: 0.5rem 0.6rem; border-bottom: 2px solid #ddd; font-weight: 600; white-space: nowrap; }
+    .results-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
+    .results-table tr:last-child td { border-bottom: none; }
+    .results-table .status-ok { color: #1a7f37; font-weight: 600; }
+    .results-table .status-fail { color: #d32f2f; font-weight: 600; }
+
+    /* Multi-select dropdown */
+    .multiselect { position: relative; flex: 1; }
+    .ms-wrap { display: flex; flex-wrap: wrap; gap: 4px; min-height: 34px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; align-items: center; }
+    .ms-wrap.open { border-color: #0366d6; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .ms-chip { display: inline-flex; align-items: center; background: #e1ecf4; color: #0366d6; border-radius: 3px; padding: 2px 6px; font-size: 0.82rem; white-space: nowrap; }
+    .ms-chip-x { margin-left: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; line-height: 1; }
+    .ms-chip-x:hover { color: #d32f2f; }
+    .ms-placeholder { color: #999; font-size: 0.9rem; user-select: none; }
+    .ms-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #0366d6; border-top: none; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; z-index: 100; max-height: 220px; overflow: hidden; flex-direction: column; }
+    .ms-dropdown.open { display: flex; }
+    .ms-search { border: none; border-bottom: 1px solid #eee; padding: 6px 8px; font-size: 0.9rem; outline: none; width: 100%; }
+    .ms-options { overflow-y: auto; flex: 1; }
+    .ms-option { display: flex; align-items: center; padding: 4px 8px; cursor: pointer; font-size: 0.88rem; }
+    .ms-option:hover { background: #f0f6fc; }
+    .ms-option.hidden { display: none; }
+    .ms-option input[type="checkbox"] { margin-right: 6px; flex-shrink: 0; }
+    .ms-count { font-size: 0.78rem; color: #666; margin-left: 6px; padding-top: 0.45rem; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <h1>NLNOG Ring Prometheus Exporter</h1>
+
+  <h2>Endpoints</h2>
+  <ul class="endpoints">
+    <li><a href="/probe?target=1.1.1.1"><code>/probe?target=1.1.1.1</code></a><span class="desc">Ping target from NLNOG Ring nodes (Prometheus metrics)</span></li>
+    <li><a href="/health"><code>/health</code></a><span class="desc">Health check (JSON)</span></li>
+    <li><a href="/sessions"><code>/sessions</code></a><span class="desc">SSH session status summary (JSON)</span></li>
+    <li><a href="/debug"><code>/debug</code></a><span class="desc">Node list grouped by session status (text)</span></li>
+  </ul>
+
+  <h2>Probe Builder</h2>
+  <form id="probe-form">
+    <div class="field">
+      <label for="target">target *</label>
+      <input type="text" id="target" name="target" placeholder="e.g. 1.1.1.1" required>
+    </div>
+    <div class="field">
+      <label for="limit">limit</label>
+      <input type="number" id="limit" name="limit" min="1" placeholder="optional">
+    </div>
+    {% for field in filter_fields %}
+    <div class="field">
+      <label>{{ field }}</label>
+      <div class="multiselect" data-field="{{ field }}">
+        <div class="ms-wrap" tabindex="0">
+          <span class="ms-placeholder">Loading...</span>
+        </div>
+        <div class="ms-dropdown">
+          <input type="text" class="ms-search" placeholder="Search...">
+          <div class="ms-options"></div>
+        </div>
+      </div>
+      <span class="ms-count"></span>
+    </div>
+    {% endfor %}
+    <div class="toggle-row">
+      <input type="checkbox" id="human-readable" checked>
+      <label for="human-readable">Human readable output</label>
+    </div>
+    <button type="submit" id="run-btn">Run Probe</button>
+  </form>
+
+  <div id="error"></div>
+  <div id="results"></div>
+
+  <script>
+    const FILTER_FIELDS = {{ filter_fields | tojson }};
+
+    // --- Multi-select component ---
+    class MultiSelect {
+      constructor(container) {
+        this.field = container.dataset.field;
+        this.selected = new Set();
+        this.allValues = [];
+        this.wrap = container.querySelector('.ms-wrap');
+        this.dropdown = container.querySelector('.ms-dropdown');
+        this.searchInput = container.querySelector('.ms-search');
+        this.optionsEl = container.querySelector('.ms-options');
+        this.placeholder = this.wrap.querySelector('.ms-placeholder');
+        this.countEl = container.parentElement.querySelector('.ms-count');
+
+        this.wrap.addEventListener('click', (e) => {
+          if (e.target.closest('.ms-chip-x')) return;
+          this.toggle();
+        });
+
+        this.searchInput.addEventListener('input', () => this.filter());
+        this.searchInput.addEventListener('click', (e) => e.stopPropagation());
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+          if (!container.contains(e.target)) this.close();
+        });
+
+        // Keyboard navigation
+        this.wrap.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.toggle(); }
+          if (e.key === 'Escape') this.close();
+        });
+        this.searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') this.close();
+        });
+      }
+
+      populate(values) {
+        this.allValues = values;
+        this.optionsEl.innerHTML = '';
+        values.forEach((val) => {
+          const opt = document.createElement('label');
+          opt.className = 'ms-option';
+          opt.innerHTML = `<input type="checkbox" value="${this.escHtml(val)}"> ${this.escHtml(val)}`;
+          opt.querySelector('input').addEventListener('change', (e) => {
+            if (e.target.checked) this.selected.add(val);
+            else this.selected.delete(val);
+            this.renderChips();
+          });
+          this.optionsEl.appendChild(opt);
+        });
+        this.placeholder.textContent = values.length ? 'Select...' : 'No options';
+        this.updateCount();
+      }
+
+      toggle() {
+        const isOpen = this.dropdown.classList.contains('open');
+        // Close all other dropdowns first
+        document.querySelectorAll('.ms-dropdown.open').forEach((d) => {
+          d.classList.remove('open');
+          d.closest('.multiselect').querySelector('.ms-wrap').classList.remove('open');
+        });
+        if (!isOpen) {
+          this.dropdown.classList.add('open');
+          this.wrap.classList.add('open');
+          this.searchInput.value = '';
+          this.filter();
+          this.searchInput.focus();
+        }
+      }
+
+      close() {
+        this.dropdown.classList.remove('open');
+        this.wrap.classList.remove('open');
+      }
+
+      filter() {
+        const q = this.searchInput.value.toLowerCase();
+        this.optionsEl.querySelectorAll('.ms-option').forEach((opt) => {
+          const val = opt.querySelector('input').value.toLowerCase();
+          opt.classList.toggle('hidden', q !== '' && !val.includes(q));
+        });
+      }
+
+      renderChips() {
+        // Remove existing chips
+        this.wrap.querySelectorAll('.ms-chip').forEach((c) => c.remove());
+        this.selected.forEach((val) => {
+          const chip = document.createElement('span');
+          chip.className = 'ms-chip';
+          chip.innerHTML = `${this.escHtml(val)}<span class="ms-chip-x">&times;</span>`;
+          chip.querySelector('.ms-chip-x').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.selected.delete(val);
+            const cb = this.optionsEl.querySelector(`input[value="${CSS.escape(val)}"]`);
+            if (cb) cb.checked = false;
+            this.renderChips();
+          });
+          this.wrap.insertBefore(chip, this.placeholder);
+        });
+        this.placeholder.style.display = this.selected.size ? 'none' : '';
+        this.placeholder.textContent = 'Select...';
+        // Sync checkboxes
+        this.optionsEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+          cb.checked = this.selected.has(cb.value);
+        });
+        this.updateCount();
+      }
+
+      updateCount() {
+        if (this.countEl) {
+          this.countEl.textContent = this.selected.size
+            ? `${this.selected.size}/${this.allValues.length}`
+            : '';
+        }
+      }
+
+      getValues() {
+        return [...this.selected];
+      }
+
+      escHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+    }
+
+    // --- Init dropdowns ---
+    const dropdowns = {};
+    document.querySelectorAll('.multiselect').forEach((el) => {
+      dropdowns[el.dataset.field] = new MultiSelect(el);
+    });
+
+    fetch('/api/filter-options')
+      .then((r) => r.json())
+      .then((data) => {
+        for (const field of FILTER_FIELDS) {
+          if (dropdowns[field] && data[field]) {
+            dropdowns[field].populate(data[field]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load filter options:', err);
+        for (const field of FILTER_FIELDS) {
+          if (dropdowns[field]) {
+            dropdowns[field].populate([]);
+          }
+        }
+      });
+
+    // --- Probe form ---
+    const form = document.getElementById('probe-form');
+    const btn = document.getElementById('run-btn');
+    const resultsEl = document.getElementById('results');
+    const errorEl = document.getElementById('error');
+    const humanToggle = document.getElementById('human-readable');
+
+    function buildParams() {
+      const params = new URLSearchParams();
+      const target = document.getElementById('target').value.trim();
+      if (!target) return null;
+      params.set('target', target);
+      const limit = document.getElementById('limit').value.trim();
+      if (limit) params.set('limit', limit);
+      FILTER_FIELDS.forEach((f) => {
+        const vals = dropdowns[f] ? dropdowns[f].getValues() : [];
+        if (vals.length) params.set(f, vals.join(','));
+      });
+      return params;
+    }
+
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function renderTable(data) {
+      const results = data.results;
+      const total = results.length;
+      const ok = results.filter((r) => r.status === 'ok');
+      const avgRtt = ok.length
+        ? (ok.reduce((s, r) => s + r.rtt_avg, 0) / ok.length).toFixed(2)
+        : 0;
+
+      let html = `<div class="summary">${ok.length}/${total} nodes successful`;
+      if (ok.length) html += `, avg RTT ${avgRtt} ms`;
+      html += `</div>`;
+
+      html += `<table class="results-table"><thead><tr>
+        <th>Node</th><th>Status</th><th>Min</th><th>Avg</th><th>Max</th><th>Mdev</th>
+        <th>City</th><th>Country</th><th>ASN</th><th>Continent</th><th>Company</th>
+      </tr></thead><tbody>`;
+
+      results.sort((a, b) => a.node.localeCompare(b.node));
+      for (const r of results) {
+        const cls = r.status === 'ok' ? 'status-ok' : 'status-fail';
+        const fmt = (v) => v !== null ? Number(v).toFixed(2) : '—';
+        html += `<tr>
+          <td>${escHtml(r.node)}</td>
+          <td class="${cls}">${escHtml(r.status)}</td>
+          <td>${fmt(r.rtt_min)}</td><td>${fmt(r.rtt_avg)}</td>
+          <td>${fmt(r.rtt_max)}</td><td>${fmt(r.rtt_mdev)}</td>
+          <td>${escHtml(r.city)}</td><td>${escHtml(r.countrycode)}</td>
+          <td>${escHtml(String(r.asn))}</td><td>${escHtml(r.continent)}</td>
+          <td>${escHtml(r.company)}</td>
+        </tr>`;
+      }
+      html += `</tbody></table>`;
+      return html;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      resultsEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+
+      const params = buildParams();
+      if (!params) return;
+
+      if (!humanToggle.checked) {
+        // Prometheus mode: open raw URL in new tab
+        window.open('/probe?' + params.toString(), '_blank');
+        return;
+      }
+
+      // Human readable mode
+      params.set('format', 'json');
+      btn.disabled = true;
+      btn.textContent = 'Running\u2026';
+
+      try {
+        const resp = await fetch('/probe?' + params.toString());
+        if (!resp.ok) {
+          const text = await resp.text();
+          errorEl.textContent = 'Error ' + resp.status + ': ' + text;
+          errorEl.style.display = 'block';
+        } else {
+          const data = await resp.json();
+          resultsEl.innerHTML = renderTable(data);
+          resultsEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = 'Request failed: ' + err.message;
+        errorEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Probe';
+      }
+    });
+  </script>
+</body>
+</html>

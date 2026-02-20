@@ -226,7 +226,7 @@ def debug_view():
             short = hostname.split('.')[0]
             lines.append(
                 f"{short:30} [{info.get('company', 'Unknown')}, {info['city']}, "
-                f"{info['countrycode']}, ASN {info['asn']}, {info['continent']}]"
+                f"{get_country_name(info['countrycode'])}, ASN {info['asn']}, {info['continent']}]"
             )
         lines.append("")
 

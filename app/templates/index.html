@@ -6,7 +6,7 @@
   <title>NLNOG Ring Prometheus Exporter</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #222; background: #f5f5f5; padding: 2rem; max-width: 860px; margin: 0 auto; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #222; background: #f5f5f5; padding: 2rem; max-width: 1200px; margin: 0 auto; }
     h1 { margin-bottom: 1.5rem; }
     h2 { margin: 1.5rem 0 0.75rem; font-size: 1.2rem; }
     a { color: #0366d6; }
@@ -34,6 +34,7 @@
     .summary { background: #f0f6fc; border: 1px solid #c8d1d9; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
 
     /* Results table */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .results-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
     .results-table th { background: #f6f8fa; text-align: left; padding: 0.5rem 0.6rem; border-bottom: 2px solid #ddd; font-weight: 600; white-space: nowrap; }
     .results-table td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
@@ -301,7 +302,7 @@
       if (ok.length) html += `, avg RTT ${avgRtt} ms`;
       html += `</div>`;
 
-      html += `<table class="results-table"><thead><tr>
+      html += `<div class="table-wrap"><table class="results-table"><thead><tr>
         <th>Node</th><th>Status</th><th>Min</th><th>Avg</th><th>Max</th><th>Mdev</th>
         <th>City</th><th>Country</th><th>ASN</th><th>Continent</th><th>Company</th>
       </tr></thead><tbody>`;
@@ -320,7 +321,7 @@
           <td>${escHtml(r.company)}</td>
         </tr>`;
       }
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       return html;
     }
 

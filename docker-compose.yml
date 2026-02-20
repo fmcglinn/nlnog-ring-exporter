@@ -7,7 +7,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./nlring/:/etc/nlring/:ro
       - ssh-control:/tmp/ssh-control
     restart: unless-stopped
 

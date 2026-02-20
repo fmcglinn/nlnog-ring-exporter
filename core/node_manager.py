@@ -11,7 +11,7 @@ from core.config import (
     SSH_USERNAME, SSH_CONTROL_PATH_TEMPLATE, SSH_KEY_PATH,
     ssh_control_path,
 )
-from core.geo import COUNTRY_CONTINENT_MAP
+from core.geo import get_continent
 from core.node_cache_store import save_node_cache, load_node_cache
 from core.session_manager import SSHSessionManager
 
@@ -123,7 +123,7 @@ class NodeManager:
             if not (n["alive_ipv4"] and n["alive_ipv6"]):
                 continue
             cc = n["countrycode"].upper()
-            continent = COUNTRY_CONTINENT_MAP.get(cc, "Unknown")
+            continent = get_continent(cc)
             company = participants.get(n.get("participant"), "Unknown")
             filtered.append({
                 "hostname": n["hostname"],

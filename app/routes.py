@@ -8,6 +8,7 @@ from prometheus_client import Gauge, generate_latest, CollectorRegistry
 from core.config import THREADS, DEBUG
 from core.ping import is_valid_target, ping_from_node
 from core.node_manager import NODE_FILTER_FIELDS, _node_field_value
+from core.geo import get_country_name
 
 bp = Blueprint("routes", __name__)
 
@@ -158,7 +159,9 @@ def filter_options():
             if val:
                 options[field].add(val)
 
-    return jsonify({field: sorted(vals) for field, vals in options.items()})
+    result = {field: sorted(vals) for field, vals in options.items()}
+    result["countryNames"] = {cc: get_country_name(cc) for cc in options.get("countrycode", set())}
+    return jsonify(result)
 
 
 @bp.route('/health')

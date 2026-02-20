@@ -3,3 +3,4 @@ prometheus-client>=0.21,<1.0
 requests>=2.31,<3.0
 gunicorn>=22.0,<23.0
 python-dotenv>=1.0,<2.0
+country-converter>=1.0,<2.0

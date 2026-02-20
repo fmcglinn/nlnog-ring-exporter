@@ -238,6 +238,7 @@
 
     // --- Init dropdowns ---
     const dropdowns = {};
+    let countryNames = {};
     document.querySelectorAll('.multiselect').forEach((el) => {
       dropdowns[el.dataset.field] = new MultiSelect(el);
     });
@@ -245,6 +246,7 @@
     fetch('/api/filter-options')
       .then((r) => r.json())
       .then((data) => {
+        if (data.countryNames) countryNames = data.countryNames;
         for (const field of FILTER_FIELDS) {
           if (dropdowns[field] && data[field]) {
             dropdowns[field].populate(data[field]);
@@ -313,7 +315,7 @@
           <td class="${cls}">${escHtml(r.status)}</td>
           <td>${fmt(r.rtt_min)}</td><td>${fmt(r.rtt_avg)}</td>
           <td>${fmt(r.rtt_max)}</td><td>${fmt(r.rtt_mdev)}</td>
-          <td>${escHtml(r.city)}</td><td>${escHtml(r.countrycode)}</td>
+          <td>${escHtml(r.city)}</td><td>${escHtml(countryNames[r.countrycode] || r.countrycode)}</td>
           <td>${escHtml(String(r.asn))}</td><td>${escHtml(r.continent)}</td>
           <td>${escHtml(r.company)}</td>
         </tr>`;
